@@ -1,2 +1,5 @@
 .env
 .venv
+.summaryignore
+diary/2024
+diary/bk
