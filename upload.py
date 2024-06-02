@@ -22,7 +22,7 @@ vector_store_password: str = os.environ.get("AZURE_SEARCH_ADMIN_KEY")
 logger.info("環境変数が読み込まれました。")
 
 # テキストをロード
-directory_path = "./diary/2024"
+directory_path = "./diary"
 loader = DirectoryLoader(directory_path, glob="*.txt", show_progress=True)
 docs = loader.load()
 logger.info(f"{len(docs)}件のドキュメントがロードされました。")
