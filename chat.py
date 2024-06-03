@@ -112,7 +112,7 @@ def create_prompt():
     """
 
     _USER_PROMPT = """
-    ユーザからの問いかけに[あなたと一緒に過ごしたユーザの思い出],[今日の日付]を使って回答してください。
+    ユーザからの問いかけに[あなたと一緒に過ごしたユーザの思い出]を使って回答してください。
 
     # ユーザからの問いかけ
     {question}
@@ -120,14 +120,13 @@ def create_prompt():
     # あなたと一緒に過ごしたユーザの思い出:
     {context}
 
-    # 今日の日付
-    2024/05/29
     """
 
     logger.info("プロンプトの作成が完了しました")
-    return ChatPromptTemplate.from_messages([("system", _SYSTEM_PROMPT), ("human", _USER_PROMPT)])
+    return  ChatPromptTemplate.from_messages([("system", _SYSTEM_PROMPT), ("human", _USER_PROMPT)])
 
-def main():
+
+def main(user_input):
     logger.info("メイン関数の開始")
     embeddings = setup_embeddings(openai_api_key)
     vector_store = initialize_vector_store(vector_store_address, vector_store_password, embeddings)
@@ -136,10 +135,12 @@ def main():
     prompt = create_prompt()
 
     rag_chain = {"context": retriever, "question": RunnablePassthrough()} | prompt | llm
-    
-    response = rag_chain.invoke("明日は久しぶりの出社だ。ずいぶん久しぶりな気がする")
-    print(response.content)
+
+    response = rag_chain.invoke(user_input)
+    logger.info(f"human: {user_input}")
+    logger.info(f"assistant: {response.content}")
     logger.info("メイン関数の終了")
 
+
 if __name__ == "__main__":
-    main()
+    main("明日は久しぶりの出社だ。ずいぶん久しぶりな気がする")

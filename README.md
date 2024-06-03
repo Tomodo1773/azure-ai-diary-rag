@@ -25,7 +25,7 @@ azure-ai-diary-ragは、ユーザーの日記をベクトル化し、Azure Searc
 - `azure-ai-diary-rag/`
   - `converter.py`: docxファイルをtxtファイルに変換するスクリプト
   - `diary/`: 日記のtxtファイルを格納するディレクトリ
-  - `main.py`: チャットボットの主要な機能を実装するメインスクリプト
+  - `chat.py`: チャットボットの主要な機能を実装するメインスクリプト
   - `upload.py`: txtファイルをベクトル化し、Azure Searchにアップロードするスクリプト
 
 ## セットアップと使用方法
@@ -59,10 +59,10 @@ azure-ai-diary-ragは、ユーザーの日記をベクトル化し、Azure Searc
 
 6. チャットボットを起動します:
 
-    main.pyに記載されているユーザプロンプトに対して日記を参照したうえで返答が生成され出力されます。
+    chat.pyに記載されているユーザプロンプトに対して日記を参照したうえで返答が生成され出力されます。
 
     ```bash
-    python main.py
+    python chat.py
     ```
 
 ## ライセンス
