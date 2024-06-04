@@ -22,7 +22,7 @@ handler = logging.StreamHandler()
 handler.setLevel(logging.INFO)
 
 # フォーマッタの設定
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 handler.setFormatter(formatter)
 
 # ハンドラをロガーに追加
@@ -40,11 +40,10 @@ def setup_embeddings(openai_api_key):
     logger.info("埋め込みの設定を開始します")
     openai_api_version = "2023-05-15"
     model = "text-embedding-ada-002"
-    embeddings = OpenAIEmbeddings(
-        openai_api_key=openai_api_key, openai_api_version=openai_api_version, model=model
-    )
+    embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key, openai_api_version=openai_api_version, model=model)
     logger.info("埋め込みの設定が完了しました")
     return embeddings
+
 
 def initialize_vector_store(vector_store_address, vector_store_password, embeddings):
     logger.info("ベクトルストアの初期化を開始します")
@@ -58,6 +57,7 @@ def initialize_vector_store(vector_store_address, vector_store_password, embeddi
     logger.info("ベクトルストアの初期化が完了しました")
     return vector_store
 
+
 def setup_llm():
     logger.info("LLMの設定を開始します")
     llm = ChatGoogleGenerativeAI(
@@ -67,6 +67,7 @@ def setup_llm():
     )
     logger.info("LLMの設定が完了しました")
     return llm
+
 
 def create_prompt():
     logger.info("プロンプトの作成を開始します")
@@ -123,24 +124,25 @@ def create_prompt():
     """
 
     logger.info("プロンプトの作成が完了しました")
-    return  ChatPromptTemplate.from_messages([("system", _SYSTEM_PROMPT), ("human", _USER_PROMPT)])
+    return ChatPromptTemplate.from_messages([("system", _SYSTEM_PROMPT), ("human", _USER_PROMPT)])
 
 
-def main(user_input):
-    logger.info("メイン関数の開始")
+def main():
+
     embeddings = setup_embeddings(openai_api_key)
     vector_store = initialize_vector_store(vector_store_address, vector_store_password, embeddings)
     retriever = RunnableLambda(vector_store.similarity_search).bind(k=3)
-    llm = setup_llm()
     prompt = create_prompt()
+    llm = setup_llm()
 
     rag_chain = {"context": retriever, "question": RunnablePassthrough()} | prompt | llm
 
+    user_input = "前回システムがトラブったのはいつだっけ"
     response = rag_chain.invoke(user_input)
+
     logger.info(f"human: {user_input}")
     logger.info(f"assistant: {response.content}")
-    logger.info("メイン関数の終了")
 
 
 if __name__ == "__main__":
-    main("明日は久しぶりの出社だ。ずいぶん久しぶりな気がする")
+    main()
