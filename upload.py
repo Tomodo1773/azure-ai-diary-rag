@@ -27,13 +27,13 @@ loader = DirectoryLoader(directory_path, glob="*.txt", show_progress=True)
 docs = loader.load()
 logger.info(f"{len(docs)}件のドキュメントがロードされました。")
 
-# テキストをベクトル化
+# ベクトル化の設定
 openai_api_version: str = "2023-05-15"
 model: str = "text-embedding-ada-002"
 embeddings: OpenAIEmbeddings = OpenAIEmbeddings(
     openai_api_key=openai_api_key, openai_api_version=openai_api_version, model=model
 )
-logger.info("テキストのベクトル化が完了しました。")
+logger.info("ベクトル化の設定が完了しました。")
 
 # インデックスの設定
 index_name: str = "diary-vector"
