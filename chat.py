@@ -38,8 +38,8 @@ vector_store_password = os.environ.get("AZURE_SEARCH_ADMIN_KEY")
 
 def setup_embeddings(openai_api_key):
     logger.info("埋め込みの設定を開始します")
-    openai_api_version = "2023-05-15"
-    model = "text-embedding-ada-002"
+    openai_api_version = "2024-06-01"
+    model = "text-embedding-3-large"
     embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key, openai_api_version=openai_api_version, model=model)
     logger.info("埋め込みの設定が完了しました")
     return embeddings
