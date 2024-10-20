@@ -1,5 +1,5 @@
-import os
 import logging
+import os
 
 from azure.search.documents.indexes.models import (
     SearchableField,
@@ -15,56 +15,71 @@ from langchain_openai import OpenAIEmbeddings
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-# 環境変数読み込み
-openai_api_key: str = os.environ.get("OPENAI_API_KEY")
-vector_store_address: str = os.environ.get("AZURE_SEARCH_ENDPOINT")
-vector_store_password: str = os.environ.get("AZURE_SEARCH_ADMIN_KEY")
-logger.info("環境変数が読み込まれました。")
 
-# テキストをロード
-directory_path = "./diary"
-loader = DirectoryLoader(directory_path, glob="*.txt", show_progress=True)
-docs = loader.load()
-logger.info(f"{len(docs)}件のドキュメントがロードされました。")
+class AISearchUploader:
 
-# ベクトル化の設定
-openai_api_version: str = "2023-05-15"
-model: str = "text-embedding-ada-002"
-embeddings: OpenAIEmbeddings = OpenAIEmbeddings(
-    openai_api_key=openai_api_key, openai_api_version=openai_api_version, model=model
-)
-logger.info("ベクトル化の設定が完了しました。")
+    def __init__(self):
+        self.model: str = "text-embedding-3-large"
+        self.index_name = "diary-vector"
+        self.embeddings = self._set_embeddings()
+        self.fields = self._set_index_fields()
+        self.vector_store = self._create_instance()
 
-# インデックスの設定
-index_name: str = "diary-vector"
-embedding_function = embeddings.embed_query
-fields = [
-    SimpleField(
-        name="id",
-        type=SearchFieldDataType.String,
-        key=True,
-        filterable=True,
-    ),
-    SearchableField(name="content", type=SearchFieldDataType.String, searchable=True, analyzer_name="ja.microsoft"),
-    SearchField(
-        name="content_vector",
-        type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
-        searchable=True,
-        vector_search_dimensions=len(embedding_function("Text")),
-        vector_search_profile_name="myHnswProfile",
-    ),
-    SearchableField(name="metadata", type=SearchFieldDataType.String, searchable=True, analyzer_name="ja.microsoft"),
-]
+        logger.info("ベクトル化の設定が完了しました。")
 
-# AzureSearchのインスタンスを初期化
-vector_store = AzureSearch(
-    azure_search_endpoint=vector_store_address,
-    azure_search_key=vector_store_password,
-    index_name=index_name,
-    embedding_function=embeddings.embed_query,
-    fields=fields,
-)
+    def _set_index_fields(self):
+        self.fields = [
+            SimpleField(
+                name="id",
+                type=SearchFieldDataType.String,
+                key=True,
+                filterable=True,
+            ),
+            SearchableField(
+                name="content", type=SearchFieldDataType.String, searchable=True, analyzer_name="ja.microsoft"
+            ),
+            SearchField(
+                name="content_vector",
+                type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
+                searchable=True,
+                vector_search_dimensions=len(self.embeddings.embed_query("Text")),
+                vector_search_profile_name="myHnswProfile",
+            ),
+            SearchableField(
+                name="metadata", type=SearchFieldDataType.String, searchable=True, analyzer_name="ja.microsoft"
+            ),
+        ]
 
-# AzureSearchのインスタンスにDocumentオブジェクトを追加
-vector_store.add_documents(documents=docs)
-logger.info(f"{len(docs)}件のドキュメントがAzureSearchインデックスに追加されました。")
+    def _set_embeddings(self):
+        openai_api_key = os.environ.get("OPENAI_API_KEY")
+        embeddings = OpenAIEmbeddings(openai_api_key=openai_api_key, openai_api_version="2024-06-01", model=self.model)
+        return embeddings
+
+    def _create_instance(self):
+        # AzureSearchのインスタンスを初期化
+        vector_store_address = os.environ.get("AZURE_SEARCH_ENDPOINT")
+        vector_store_password = os.environ.get("AZURE_SEARCH_ADMIN_KEY")
+
+        vector_store = AzureSearch(
+            azure_search_endpoint=vector_store_address,
+            azure_search_key=vector_store_password,
+            index_name=self.index_name,
+            embedding_function=self.embeddings.embed_query,
+            fields=self.fields,
+        )
+        return vector_store
+
+    def upload(self, directory_path: str):
+        # テキストをロード
+        loader = DirectoryLoader(directory_path, glob="*.txt", show_progress=True)
+        docs = loader.load()
+        logger.info(f"{len(docs)}件のドキュメントがロードされました。")
+
+        # ドキュメントをAzureSearchに追加
+        self.vector_store.add_documents(documents=docs)
+        logger.info(f"{len(docs)}件のドキュメントがAzureSearchインデックスに追加されました。")
+
+
+if __name__ == "__main__":
+    uploader = AISearchUploader()
+    uploader.upload(directory_path="./diary")
