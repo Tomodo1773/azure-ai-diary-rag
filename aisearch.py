@@ -7,13 +7,20 @@ from azure.search.documents.indexes.models import (
     SearchFieldDataType,
     SimpleField,
 )
-from langchain_community.document_loaders import DirectoryLoader
 from langchain_community.vectorstores.azuresearch import AzureSearch
 from langchain_openai import OpenAIEmbeddings
+from langchain_core.documents import Document
 
 # ロガーの設定
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
+
+# ストリームハンドラを追加
+stream_handler = logging.StreamHandler()
+stream_handler.setLevel(logging.INFO)
+formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+stream_handler.setFormatter(formatter)
+logger.addHandler(stream_handler)
 
 
 class AISearchUploader:
@@ -69,12 +76,8 @@ class AISearchUploader:
         )
         return vector_store
 
-    def upload(self, directory_path: str):
-        # テキストをロード
-        loader = DirectoryLoader(directory_path, glob="*.txt", show_progress=True)
-        docs = loader.load()
+    def upload(self, docs: list[Document]):
         logger.info(f"{len(docs)}件のドキュメントがロードされました。")
-
         # ドキュメントをAzureSearchに追加
         self.vector_store.add_documents(documents=docs)
         logger.info(f"{len(docs)}件のドキュメントがAzureSearchインデックスに追加されました。")
@@ -82,4 +85,5 @@ class AISearchUploader:
 
 if __name__ == "__main__":
     uploader = AISearchUploader()
-    uploader.upload(directory_path="./diary")
+    document = Document(page_content="Hello, world!", metadata={"source": "https://example.com"})
+    uploader.upload(document)
