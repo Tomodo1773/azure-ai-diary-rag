@@ -1,93 +1,84 @@
 import io
 import os
-
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
-
-# If modifying these scopes, delete the file token.json.
-SCOPES = ["https://www.googleapis.com/auth/drive.readonly", "https://www.googleapis.com/auth/documents.readonly"]
+from langchain_core.documents import Document
 
 
-def get_diary_list():
-    """Shows basic usage of the Drive v3 API.
-    Prints the names and ids of the first 10 files the user has access to.
-    """
-    creds = None
-    # Use service account credentials
-    creds = service_account.Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
+class GoogleDriveHandler:
+    SCOPES = ["https://www.googleapis.com/auth/drive.readonly", "https://www.googleapis.com/auth/documents.readonly"]
 
-    try:
-        service = build("drive", "v3", credentials=creds)
+    def __init__(self, credentials_file="credentials.json"):
+        self.creds = service_account.Credentials.from_service_account_file(credentials_file, scopes=self.SCOPES)
+        self.service = build("drive", "v3", credentials=self.creds)
 
-        folder_id = os.environ.get("DRIVE_FOLDER_ID")
+    def list(self, folder_id=None):
+        if folder_id is None:
+            folder_id = os.environ.get("DRIVE_FOLDER_ID")
 
-        # Call the Drive v3 API
+        items = []
         page_token = None
-        while True:
-            results = (
-                service.files()
-                .list(
-                    q=f"'{folder_id}' in parents",
-                    spaces="drive",
-                    fields="nextPageToken, files(id, name, createdTime, modifiedTime)",
-                    orderBy="modifiedTime desc",
-                    pageSize=1000,  # 最大1000まで指定可能
-                    pageToken=page_token,
+        try:
+            while True:
+                results = (
+                    self.service.files()
+                    .list(
+                        q=f"'{folder_id}' in parents",
+                        spaces="drive",
+                        fields="nextPageToken, files(id, name, createdTime, modifiedTime)",
+                        orderBy="modifiedTime desc",
+                        pageSize=1000,
+                        pageToken=page_token,
+                    )
+                    .execute()
                 )
-                .execute()
-            )
-            items = results.get("files", [])
-            for item in items:
-                print(f"{item['name']} ({item['id']}) ({item['createdTime']}) ({item['modifiedTime']})")
 
-            page_token = results.get("nextPageToken", None)
-            if page_token is None:
-                break
-    except HttpError as error:
-        # TODO(developer) - Handle errors from drive API.
-        print(f"An error occurred: {error}")
+                items.extend(results.get("files", []))
+                page_token = results.get("nextPageToken")
+                if not page_token:
+                    break
+            return items
+        except HttpError as error:
+            print(f"An error occurred while listing files: {error}")
+            return []
 
+    def get(self, file_id) -> Document:
+        try:
+            file_metadata = self.service.files().get(fileId=file_id, fields="name, mimeType").execute()
 
-def get_content_by_id(file_id):
-    creds = None
-    # Use service account credentials
-    creds = service_account.Credentials.from_service_account_file("credentials.json", scopes=SCOPES)
+            if file_metadata["mimeType"] == "application/vnd.google-apps.document":
+                request = self.service.files().export_media(fileId=file_id, mimeType="text/plain")
+            else:
+                request = self.service.files().get_media(fileId=file_id)
 
-    try:
-        service = build("drive", "v3", credentials=creds)
+            fh = io.BytesIO()
+            downloader = MediaIoBaseDownload(fh, request)
+            done = False
+            while not done:
+                _, done = downloader.next_chunk()
 
-        # Get file metadata
-        file_metadata = service.files().get(fileId=file_id, fields="name, mimeType").execute()
+            content = fh.getvalue().decode("utf-8-sig")
+            return Document(page_content=content, metadata={"source": file_metadata["name"]})
 
-        # Check if the file is a Google Doc
-        if file_metadata["mimeType"] == "application/vnd.google-apps.document":
-            # Export the file as plain text
-            request = service.files().export_media(fileId=file_id, mimeType="text/plain")
-        else:
-            # For non-Google Doc files, just get the content
-            request = service.files().get_media(fileId=file_id)
-
-        fh = io.BytesIO()
-        downloader = MediaIoBaseDownload(fh, request)
-        done = False
-        while done is False:
-            status, done = downloader.next_chunk()
-
-        content = fh.getvalue().decode("utf-8")
-
-        print(f"File Name: {file_metadata['name']}")
-        print(f"MIME Type: {file_metadata['mimeType']}")
-        print(f"Content: {content}")
-
-        return content
-
-    except HttpError as error:
-        print(f"An error occurred: {error}")
-        return None
+        except HttpError as error:
+            print(f"An error occurred while getting file content: {error}")
+            return None
 
 
+# 使用例
 if __name__ == "__main__":
-    # get_diary_list()
-    get_content_by_id("dummy file id")
+    drive_handler = GoogleDriveHandler()
+
+    # リスト取得
+    file_list = drive_handler.list()
+    for file in file_list:
+        print(f"{file['name']} ({file['id']}) ({file['createdTime']}) ({file['modifiedTime']})")
+
+    # 特定のファイルの内容を取得
+    if file_list:
+        document = drive_handler.get(file_list[1]["id"])
+        if document:
+            print(f"Content of {document.metadata['source']}:")
+            print(document.page_content[:500])  # 最初の500文字だけ表示
